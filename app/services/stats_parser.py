@@ -1,3 +1,7 @@
+import json
+from datetime import datetime, timezone, timedelta
+
+
 def parse_basic(user: dict) -> dict:
     stats = user["submitStats"]["acSubmissionNum"]
 
@@ -51,9 +55,33 @@ def parse_topics(user: dict) -> dict:
     }
 
 
-def parse_all(user: dict, contest: dict | None) -> dict:
+def parse_last_seven_days(username: str, raw_calendar: str) -> dict:
+    calendar: dict = json.loads(raw_calendar)
+
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    last_seven = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        timestamp = str(int(day.timestamp()))
+        last_seven.append({
+            "date": day.strftime("%Y-%m-%d"),
+            "submissions": calendar.get(timestamp, 0)
+        })
+
+    total = sum(d["submissions"] for d in last_seven)
+
+    return {
+        "username": username,
+        "last_7_days": last_seven,
+        "total_submissions": total,
+    }
+
+
+def parse_all(user: dict, contest: dict | None, raw_calendar: str) -> dict:
     return {
         **parse_basic(user),
         "contest": parse_contest(user["username"], contest),
         "topics": parse_topics(user)["topics"],
+        **parse_last_seven_days(user["username"], raw_calendar),
     }

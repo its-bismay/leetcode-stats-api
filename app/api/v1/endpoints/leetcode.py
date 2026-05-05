@@ -1,18 +1,23 @@
+import asyncio
 from fastapi import APIRouter
-from app.services.leetcode_client import fetch_all_stats
-from app.services.stats_parser import parse_basic, parse_contest, parse_topics, parse_all
+from app.services.leetcode_client import fetch_all_stats, fetch_calendar
+from app.services.stats_parser import parse_basic, parse_contest, parse_topics, parse_all, parse_last_seven_days
 from app.schemas.problems import BasicResponse
 from app.schemas.contest import ContestResponse
 from app.schemas.topics import TopicsResponse
 from app.schemas.combined import AllStatsResponse
+from app.schemas.calendar import LastSevenDaysResponse
 
 router = APIRouter(prefix="/{username}", tags=["LeetCode"])
 
 
 @router.get("/all", response_model=AllStatsResponse)
 async def get_all_stats(username: str):
-    user, contest = await fetch_all_stats(username)
-    return parse_all(user, contest)
+    (user, contest), raw_calendar = await asyncio.gather(
+        fetch_all_stats(username),
+        fetch_calendar(username),
+    )
+    return parse_all(user, contest, raw_calendar)
 
 
 @router.get("/basic", response_model=BasicResponse)
@@ -31,3 +36,9 @@ async def get_contest_stats(username: str):
 async def get_topics(username: str):
     user, _ = await fetch_all_stats(username)
     return parse_topics(user)
+
+
+@router.get("/last7days", response_model=LastSevenDaysResponse)
+async def get_last_seven_days(username: str):
+    raw_calendar = await fetch_calendar(username)
+    return parse_last_seven_days(username, raw_calendar)

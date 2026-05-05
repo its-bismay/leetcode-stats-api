@@ -51,6 +51,17 @@ CONTEST_QUERY = """
     }
 """
 
+CALENDAR_QUERY = """
+    query userProfileCalendar($username: String!) {
+        matchedUser(username: $username) {
+            userCalendar {
+                submissionCalendar
+            }
+        }
+    }
+"""
+
+
 async def fetch_all_stats(username: str) -> tuple[dict, dict]:
     profile_payload = {"query": PROFILE_QUERY, "variables": {"username": username}}
     contest_payload = {"query": CONTEST_QUERY, "variables": {"username": username}}
@@ -75,3 +86,21 @@ async def fetch_all_stats(username: str) -> tuple[dict, dict]:
     contest = contest_data.get("data", {}).get("userContestRanking")
 
     return user, contest
+
+
+
+async def fetch_calendar(username: str) -> str:
+    payload = {"query": CALENDAR_QUERY, "variables": {"username": username}}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(settings.LEETCODE_GRAPHQL_URL, json=payload, headers=HEADERS)
+        data = res.json()
+    except httpx.RequestError:
+        raise LeetCodeAPIError()
+
+    user = data.get("data", {}).get("matchedUser")
+    if not user:
+        raise UserNotFoundException(username)
+
+    return user["userCalendar"]["submissionCalendar"]
